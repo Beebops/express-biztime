@@ -16,18 +16,30 @@ router.get('/', async (req, res, next) => {
 /** Returns obj of company: {company: {code, name, description}} */
 router.get('/:code', async (req, res, next) => {
   try {
-    const companyQuery = await db.query(
+    let { code } = req.params
+    const companyResult = await db.query(
       `SELECT * FROM companies WHERE code = $1`,
-      [req.params.code]
+      [code]
     )
-    if (companyQuery.rows.length === 0) {
-      let notFoundError = new Error(
-        `No company with code of '${req.params.code}' exists.`
-      )
+
+    const invoiceResult = await db.query(
+      `SELECT id
+      FROM invoices
+      WHERE comp_code = $1`,
+      [code]
+    )
+    if (companyResult.rows.length === 0) {
+      let notFoundError = new Error(`No company with code of '${code}' exists.`)
       notFoundError.status = 404
       throw notFoundError
     }
-    return res.json({ company: companyQuery.rows[0] })
+
+    const company = companyResult.rows[0]
+    const invoices = invoiceResult.rows
+
+    company.invoices = invoices.map((invoice) => invoice.id)
+
+    return res.json({ company: company })
   } catch (err) {
     return next(err)
   }
